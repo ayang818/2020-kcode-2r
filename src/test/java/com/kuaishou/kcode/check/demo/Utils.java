@@ -1,4 +1,4 @@
-package kuaishou.kcode.check.demo;
+package com.kuaishou.kcode.check.demo;
 
 import java.io.BufferedReader;
 import java.io.FileInputStream;

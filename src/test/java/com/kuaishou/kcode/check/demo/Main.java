@@ -1,7 +1,7 @@
-package kuaishou.kcode.check.demo;
+package com.kuaishou.kcode.check.demo;
 
-import static kuaishou.kcode.check.demo.Utils.createQ1CheckResult;
-import static kuaishou.kcode.check.demo.Utils.createQ2Result;
+import static com.kuaishou.kcode.check.demo.Utils.createQ1CheckResult;
+import static com.kuaishou.kcode.check.demo.Utils.createQ2Result;
 
 import java.nio.file.Files;
 import java.nio.file.Paths;
@@ -12,8 +12,8 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import kuaishou.kcode.KcodeAlertAnalysis;
-import kuaishou.kcode.KcodeAlertAnalysisImpl;
+import com.kuaishou.kcode.KcodeAlertAnalysis;
+import com.kuaishou.kcode.KcodeAlertAnalysisImpl;
 
 /**
  * @author KCODE
@@ -52,15 +52,15 @@ public class Main {
         Set<Q1Result> q1CheckResult = createQ1CheckResult(q1ResultFilePath);
         KcodeAlertAnalysis instance = new KcodeAlertAnalysisImpl();
         List<String> alertRules = Files.lines(Paths.get(ruleFilePath)).collect(Collectors.toList());
-        long start = System.currentTimeMillis();
+        long start = System.nanoTime();
         Collection<String> alertResult = instance.alarmMonitor(sourceFilePath, alertRules);
-        long finish = System.currentTimeMillis();
+        long finish = System.nanoTime();
         if (Objects.isNull(alertResult) || alertResult.size() != q1CheckResult.size()) {
             System.out.println("Q1 Error Size:" + q1CheckResult + "," + alertResult.size());
             return;
         }
         Set<Q1Result> resultSet = alertResult.stream().map(line -> new Q1Result(line)).collect(Collectors.toSet());
-        if (!resultSet.contains(q1CheckResult)) {
+        if (!resultSet.containsAll(q1CheckResult)) {
             System.out.println("Q1 Error Value");
             return;
         }
@@ -70,10 +70,10 @@ public class Main {
         Map<Q2Input, Set<Q2Result>> q2Result = createQ2Result(q2ResultFilePath);
         long cast = 0L;
         for (Map.Entry<Q2Input, Set<Q2Result>> entry : q2Result.entrySet()) {
-            start = System.currentTimeMillis();
+            start = System.nanoTime();
             Q2Input q2Input = entry.getKey();
             Collection<String> longestPaths = instance.getLongestPath(q2Input.getCaller(), q2Input.getResponder(), q2Input.getTime(), q2Input.getType());
-            finish = System.currentTimeMillis();
+            finish = System.nanoTime();
             Set<Q2Result> checkResult = entry.getValue();
 
             if (Objects.isNull(longestPaths) || longestPaths.size() != checkResult.size()) {

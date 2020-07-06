@@ -1,4 +1,4 @@
-package kuaishou.kcode;
+package com.kuaishou.kcode;
 
 import java.util.Collection;
 

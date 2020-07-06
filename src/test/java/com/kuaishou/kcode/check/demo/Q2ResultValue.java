@@ -1,4 +1,4 @@
-package kuaishou.kcode.check.demo;
+package com.kuaishou.kcode.check.demo;
 
 import static java.lang.Double.parseDouble;
 
@@ -41,7 +41,7 @@ public class Q2ResultValue {
 
     @Override
     public int hashCode() {
-        return Objects.hash(DIFF, type, value);
+        return Objects.hash(DIFF, type);
     }
 
     @Override
