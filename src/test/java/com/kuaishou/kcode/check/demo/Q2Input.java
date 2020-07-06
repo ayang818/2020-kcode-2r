@@ -13,7 +13,7 @@ public class Q2Input {
     private String type;
 
     public Q2Input(String line) {
-        String[] split = line.substring(2, line.length() - 1).split(",");
+        String[] split = line.substring(2).split(",");
         this.caller = split[0];
         this.responder = split[1];
         this.time = split[2];
