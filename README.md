@@ -125,7 +125,7 @@ serviceZ,172.17.60.8,serviceC,172.17.60.4,true,120,1592454780000「2020-06-18 12
 - jvm内存设置 : -XX:+UseG1GC -XX:MaxGCPauseMillis=500 -Xms6G -Xmx6G -XX:MaxDirectMemorySize=1G
 - 评测机器硬件信息（docker）：
     - 操作系统 CentOS 7.3 64位
-    - CPU	16核 3.00GHz
+    - CPU	8核 3.00GHz
     - 硬盘：容量 100GB， 吞吐量 > 100MB/S
 - 如果需要输出文件，请使用 /tmp/ 目录
   
