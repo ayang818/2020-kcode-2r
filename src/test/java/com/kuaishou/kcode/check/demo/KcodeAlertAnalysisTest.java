@@ -19,7 +19,7 @@ import com.kuaishou.kcode.KcodeAlertAnalysisImpl;
  * @author KCODE
  * Created on 2020-07-01
  */
-public class Main {
+public class KcodeAlertAnalysisTest {
 
     public static void main(String[] args) throws Exception {
         // 第一套数据集

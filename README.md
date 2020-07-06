@@ -155,17 +155,20 @@ serviceZ,172.17.60.8,serviceC,172.17.60.4,true,120,1592454780000「2020-06-18 12
  为了模拟线上评测，决赛提供**两份**本地评测数据 （线上评测也会有多份数据）
  
  - 测试数据和评测数据1：为方便下载，将数据集切分为多个文件(要全部下载，才能正常解压)：
-   - http://static.yximgs.com/kos/nlav10305/KcodeAlertAnalysis-data1/KcodeAlertAnalysis-data1.zip
-   - http://static.yximgs.com/kos/nlav10305/KcodeAlertAnalysis-data1/KcodeAlertAnalysis-data1.z01
-   - http://static.yximgs.com/kos/nlav10305/KcodeAlertAnalysis-data1/KcodeAlertAnalysis-data1.z02
-   - http://static.yximgs.com/kos/nlav10305/KcodeAlertAnalysis-data1/KcodeAlertAnalysis-data1.z03
-   - http://static.yximgs.com/kos/nlav10305/KcodeAlertAnalysis-data1/KcodeAlertAnalysis-data1.z04
-   
+   - https://static.yximgs.com/kos/nlav10305/KcodeAlertAnalysis-data1/KcodeAlertAnalysis-data1.z01
+   - https://static.yximgs.com/kos/nlav10305/KcodeAlertAnalysis-data1/KcodeAlertAnalysis-data1.z02
+   - https://static.yximgs.com/kos/nlav10305/KcodeAlertAnalysis-data1/KcodeAlertAnalysis-data1.z03
+   - https://static.yximgs.com/kos/nlav10305/KcodeAlertAnalysis-data1/KcodeAlertAnalysis-data1.z04
+   - https://static.yximgs.com/kos/nlav10305/KcodeAlertAnalysis-data1/KcodeAlertAnalysis-data1.z05
+   - https://static.yximgs.com/kos/nlav10305/KcodeAlertAnalysis-data1/KcodeAlertAnalysis-data1.z06
+   - https://static.yximgs.com/kos/nlav10305/KcodeAlertAnalysis-data1/KcodeAlertAnalysis-data1.zip
  
  - 测试数据和评测数据2：为方便下载，将数据集切分为多个文件(要全部下载，才能正常解压)：
-   - http://static.yximgs.com/kos/nlav10305/KcodeAlertAnalysis-data2/KcodeAlertAnalysis-data2.zip
-   - http://static.yximgs.com/kos/nlav10305/KcodeAlertAnalysis-data2/KcodeAlertAnalysis-data2.z01
-   - http://static.yximgs.com/kos/nlav10305/KcodeAlertAnalysis-data2/KcodeAlertAnalysis-data2.z02
+   - https://static.yximgs.com/kos/nlav10305/KcodeAlertAnalysis-data2/KcodeAlertAnalysis-data2.z01
+   - https://static.yximgs.com/kos/nlav10305/KcodeAlertAnalysis-data2/KcodeAlertAnalysis-data2.z02
+   - https://static.yximgs.com/kos/nlav10305/KcodeAlertAnalysis-data2/KcodeAlertAnalysis-data2.z03
+   - https://static.yximgs.com/kos/nlav10305/KcodeAlertAnalysis-data2/KcodeAlertAnalysis-data2.z04
+   - https://static.yximgs.com/kos/nlav10305/KcodeAlertAnalysis-data2/KcodeAlertAnalysis-data2.zip
  
  - 文件名说明（以"测试数据和评测数据1"说明）：
    - kcodeAlertForStudent-1.data：监控数据
