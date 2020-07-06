@@ -113,7 +113,7 @@ serviceZ,172.17.60.8,serviceC,172.17.60.4,true,120,1592454780000「2020-06-18 12
 
 ## 操作说明
 - 进入决赛队伍登录 https://kcode-git.kuaishou.com 可以直接看到决赛git项目，项目名称为：kcodeAlertAnalysis_xxxxxx
-- 登录 https://kcode-git.kuaishou.com/ 或直接下载 [决赛初始代码](链接待补充)
+- 登录 https://kcode-git.kuaishou.com/ 或直接下载 [决赛初始代码](https://kcode-git.kuaishou.com/kcode/kcodealertanalysis)
 - 将初赛初始代码相关文件提交到自己的参赛项目，项目名称为 kcodeAlertAnalysis_xxxxxxx，登录 https://kcode-git.kuaishou.com/ 可以获取
 - pom.xml 中指定了打包插件(无需修改)
 - KcodeAlertAnalysisImpl 中需要选手实现 alarmMonitor 和 getLongestPath 方法
