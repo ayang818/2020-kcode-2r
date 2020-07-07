@@ -64,7 +64,7 @@ public class KcodeAlertAnalysisTest {
             System.out.println("Q1 Error Value");
             return;
         }
-        System.out.println("Q1:" + (finish - start));
+        System.out.println("Q1 cast:" + (finish - start));
 
         // Q2
         Map<Q2Input, Set<Q2Result>> q2Result = createQ2Result(q2ResultFilePath);
@@ -87,6 +87,6 @@ public class KcodeAlertAnalysisTest {
             }
             cast += (finish - start);
         }
-        System.out.println("Q2:" + (finish - start));
+        System.out.println("Q2 cast:" + cast);
     }
 }
