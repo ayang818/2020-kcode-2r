@@ -174,7 +174,7 @@ serviceD,172.17.60.5,serviceF,172.17.60.4,true,120,1592454900000「2020-06-18 12
    - https://static.yximgs.com/kos/nlav10305/KcodeAlertAnalysis-data2/KcodeAlertAnalysis-data2.zip
    
  - 测试数据和评测数据(小集合):
-   - http://static.yximgs.com/kos/nlav10305/KcodeAlertAnalysis-test/KcodeAlertAnalysis-data-test.zip
+   - https://static.yximgs.com/kos/nlav10305/KcodeAlertAnalysis-test/KcodeAlertAnalysis-data-test.zip
  
  - 文件名说明（以"测试数据和评测数据1"说明）：
    - kcodeAlertForStudent-1.data：监控数据
