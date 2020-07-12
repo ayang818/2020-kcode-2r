@@ -44,16 +44,18 @@ public class KcodeAlertAnalysisImpl implements KcodeAlertAnalysis {
             int size = 0;
             String[] lines = new String[taskNumberThreshold];
             while ((line = bufferedReader.readLine()) != null) {
-                if (size < taskNumberThreshold) {
-                    lines[size] = line;
-                    size += 1;
-                } else {
+                lines[size] = line;
+                size += 1;
+                if (size >= taskNumberThreshold) {
                     String[] tmpLines = lines;
-                    threadPool.execute(() -> handleLines(tmpLines));
+                    threadPool.execute(() -> handleLines(tmpLines, taskNumberThreshold));
                     lines = new String[taskNumberThreshold];
                     size = 0;
                 }
             }
+            final String[] tmpLines = lines;
+            final int sz = size;
+            threadPool.execute(() -> handleLines(tmpLines, sz));
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -222,8 +224,7 @@ public class KcodeAlertAnalysisImpl implements KcodeAlertAnalysis {
         return res;
     }
 
-    private void handleLines(String[] lines) {
-        int len = lines.length;
+    private void handleLines(String[] lines, int len) {
         for (int i = 0; i < len; i++) {
             handleLine(lines[i]);
         }
