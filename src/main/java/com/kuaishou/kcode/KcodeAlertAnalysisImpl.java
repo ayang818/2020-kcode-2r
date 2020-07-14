@@ -3,9 +3,6 @@ package com.kuaishou.kcode;
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Paths;
-import java.nio.file.StandardOpenOption;
 import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -68,17 +65,73 @@ public class KcodeAlertAnalysisImpl implements KcodeAlertAnalysis {
         }
         /* 等待线程池任务处理完 */
         threadPool.shutdown();
-        while (!threadPool.isTerminated()) {}
+        while (!threadPool.isTerminated()) {
+        }
         // *(String.format("数据解析完毕，耗时 %d ms，开始生成报警信息....", System.currentTimeMillis() - start));
         start = System.currentTimeMillis();
         List<Rule> ruleList = parseRules(alertRules);
         Set<String> res = getAlertInfo(ruleList);
-        calcMap();
-        System.gc();
+        calcByPointMap();
         // *(String.format("报警信息生成完毕，共 %d 条，耗时 %d ms", res.size(), System.currentTimeMillis() - start));
         // *(String.format("点数量 %d，边数量 %d ", pointMap.size(), Q2DataMap.entrySet().size()));
         return res;
     }
+
+    /**
+     * @param caller    主调服务名称
+     * @param responder 被调服务名称
+     * @param time      报警发生时间（分钟），格式 yyyy-MM-dd hh:mm
+     * @param type      监控触发类型 SR P99
+     * @return [serviceZ->serviceA->serviceB|100.00%,-1% ... ]
+     */
+    @Override
+    public Collection<String> getLongestPath(String caller, String responder, String time, String type) {
+        List<String> res = new ArrayList<>();
+        Point callerPoint = pointMap.get(caller);
+        Point responderPoint = pointMap.get(responder);
+
+        // 获得前驱/后继路径
+        List<Deque<Point>> headPaths = callerPoint.getHeadPaths();
+        // 向后构造后继答案
+        List<Deque<Point>> tailPaths = responderPoint.getTailPaths();
+
+        StringBuilder servicePathBuilder = new StringBuilder();
+        StringBuilder ansPathBuilder = new StringBuilder();
+        Point callerP, responderP;
+        List<Point> newPath;
+        String compactedKey;
+        for (Deque<Point> hPath : headPaths) {
+            for (Deque<Point> tPath : tailPaths) {
+                int len = hPath.size() + tPath.size();
+                newPath = new ArrayList<>(len);
+                newPath.addAll(hPath);
+                newPath.addAll(tPath);
+                boolean flag = true;
+                for (int i = 0; i <= len - 2; i++) {
+                    callerP = newPath.get(i);
+                    responderP = newPath.get(i + 1);
+                    if (flag) servicePathBuilder.append(callerP.getServiceName());
+                    servicePathBuilder.append("->").append(responderP.getServiceName());
+                    compactedKey = callerP.getServiceName() + "," + responderP.getServiceName();
+                    Span span = Q2DataMap.get(compactedKey).get(time);
+                    if (!flag) ansPathBuilder.append(",");
+                    if (type.equals(ALERT_TYPE_P99)) {
+                        ansPathBuilder.append(span.getP99()).append("ms");
+                    } else {
+                        ansPathBuilder.append(decimalFormat(span.getSucRate())).append("%");
+                    }
+                    if (flag) flag = false;
+                }
+                String record = servicePathBuilder.toString() + "|" + ansPathBuilder.toString();
+                // *(record);
+                res.add(record);
+                servicePathBuilder.delete(0, servicePathBuilder.length());
+                ansPathBuilder.delete(0, ansPathBuilder.length());
+            }
+        }
+        return res;
+    }
+
 
     private Set<String> getAlertInfo(List<Rule> ruleList) {
         // *(String.format("规则集中有 %d 条规则", ruleList.size()));
@@ -199,13 +252,34 @@ public class KcodeAlertAnalysisImpl implements KcodeAlertAnalysis {
         return false;
     }
 
-    private void calcMap() {
+    private void calcByPointMap() {
         // 扫描 pointSet 点集合，获得所有点的最长前驱和最长后继
         pointMap.forEach((strServiceName, point) -> {
             // 得到最长前驱
             dfs(point, true);
             // 得到最长后继
             dfs(point, false);
+        });
+        // 更新每个点的最长前驱/后继路径
+        pointMap.forEach((strServiceName, point) -> {
+            Deque<Point> headPath = new LinkedList<>();
+            List<Deque<Point>> headPaths = new ArrayList<>();
+            headPath.offerFirst(point);
+            genePointPath(point, headPath, headPaths, false);
+            point.setHeadPaths(headPaths);
+
+            Deque<Point> tailPath = new LinkedList<>();
+            List<Deque<Point>> tailPaths = new ArrayList<>();
+            tailPath.offer(point);
+            genePointPath(point, tailPath, tailPaths, true);
+            point.setTailPaths(tailPaths);
+        });
+        // 对每个点构造str形式的 path , p99 path, SR path
+        pointMap.forEach((strServiceName, point) -> {
+            List<Deque<Point>> headPaths = point.getHeadPaths();
+            point.setStrPrePath(geneStrPaths(point, headPaths));
+            List<Deque<Point>> tailPaths = point.getTailPaths();
+            point.setStrNextPath(geneStrPaths(point, tailPaths));
         });
     }
 
@@ -261,6 +335,40 @@ public class KcodeAlertAnalysisImpl implements KcodeAlertAnalysis {
             point.setMaxNextDis(res);
         }
         return res;
+    }
+
+    private void genePointPath(Point responderPoint, Deque<Point> longestPath, List<Deque<Point>> paths, boolean isTail) {
+        Set<Point> findSet;
+        if (isTail) {
+            findSet = responderPoint.getMaxNextSet();
+        } else {
+            findSet = responderPoint.getMaxPreSet();
+        }
+        // 没有后继说明，已经到终点了
+        if (findSet.size() == 0) paths.add(longestPath);
+        for (Point pnt : findSet) {
+            Deque<Point> anotherPath = new LinkedList<>(longestPath);
+            if (isTail) {
+                anotherPath.offer(pnt);
+            } else {
+                anotherPath.offerFirst(pnt);
+            }
+            genePointPath(pnt, anotherPath, paths, isTail);
+        }
+    }
+
+    private List<String> geneStrPaths(Point point, List<Deque<Point>> pointPaths) {
+        StringBuilder pathBuilder = new StringBuilder();
+        List<String> strPaths = new ArrayList<>();
+        for (Deque<Point> headPath : pointPaths) {
+            for (Point pnt : headPath) {
+                pathBuilder.append(pnt.getServiceName()).append("->");
+            }
+            pathBuilder.delete(pathBuilder.length() - 2, pathBuilder.length());
+            strPaths.add(pathBuilder.toString());
+            pathBuilder.delete(0, pathBuilder.length());
+        }
+        return strPaths;
     }
 
     private String parseDate(long timestamp) {
@@ -329,89 +437,6 @@ public class KcodeAlertAnalysisImpl implements KcodeAlertAnalysis {
         }
         synchronized (out) {
             out.getPreSet().add(enter);
-        }
-    }
-
-    List<String> nullRes = new ArrayList<>();
-
-    /**
-     * @param caller    主调服务名称
-     * @param responder 被调服务名称
-     * @param time      报警发生时间（分钟），格式 yyyy-MM-dd hh:mm
-     * @param type      监控触发类型 SR P99
-     * @return [serviceZ->serviceA->serviceB|100.00%,-1% ... ]
-     */
-    @Override
-    public Collection<String> getLongestPath(String caller, String responder, String time, String type) {
-        List<String> res = new ArrayList<>();
-        Point callerPoint = pointMap.get(caller);
-        Point responderPoint = pointMap.get(responder);
-
-        // 递归向前构造前驱答案
-        Deque<Point> headPath = new LinkedList<>();
-        List<Deque<Point>> headPaths = new ArrayList<>();
-        headPath.offerFirst(callerPoint);
-        generatePath(callerPoint, headPath, headPaths, false);
-        // 向后构造后继答案
-        Deque<Point> tailPath = new LinkedList<>();
-        List<Deque<Point>> tailPaths = new ArrayList<>();
-        tailPath.offer(responderPoint);
-        generatePath(responderPoint, tailPath, tailPaths, true);
-
-        StringBuilder servicePathBuilder = new StringBuilder();
-        StringBuilder ansPathBuilder = new StringBuilder();
-        Point callerP, responderP;
-        List<Point> newPath;
-        String compactedKey;
-        for (Deque<Point> hPath : headPaths) {
-            for (Deque<Point> tPath : tailPaths) {
-                int len = hPath.size() + tPath.size();
-                newPath = new ArrayList<>(len);
-                newPath.addAll(hPath);
-                newPath.addAll(tPath);
-                boolean flag = true;
-                for (int i = 0; i <= len - 2; i++) {
-                    callerP = newPath.get(i);
-                    responderP = newPath.get(i + 1);
-                    if (flag) servicePathBuilder.append(callerP.getServiceName());
-                    servicePathBuilder.append("->").append(responderP.getServiceName());
-                    compactedKey = callerP.getServiceName() + "," + responderP.getServiceName();
-                    Span span = Q2DataMap.get(compactedKey).get(time);
-                    if (!flag) ansPathBuilder.append(",");
-                    if (type.equals(ALERT_TYPE_P99)) {
-                        ansPathBuilder.append(span.getP99()).append("ms");
-                    } else {
-                        ansPathBuilder.append(decimalFormat(span.getSucRate())).append("%");
-                    }
-                    if (flag) flag = false;
-                }
-                String record = servicePathBuilder.toString() + "|" + ansPathBuilder.toString();
-                // *(record);
-                res.add(record);
-                servicePathBuilder.delete(0, servicePathBuilder.length());
-                ansPathBuilder.delete(0, ansPathBuilder.length());
-            }
-        }
-        return res;
-    }
-
-    private void generatePath(Point responderPoint, Deque<Point> longestPath, List<Deque<Point>> paths, boolean isTail) {
-        Set<Point> findSet;
-        if (isTail) {
-            findSet = responderPoint.getMaxNextSet();
-        } else {
-            findSet = responderPoint.getMaxPreSet();
-        }
-        // 没有后继说明，已经到终点了
-        if (findSet.size() == 0) paths.add(longestPath);
-        for (Point pnt : findSet) {
-            Deque<Point> anotherPath = new LinkedList<>(longestPath);
-            if (isTail) {
-                anotherPath.offer(pnt);
-            } else {
-                anotherPath.offerFirst(pnt);
-            }
-            generatePath(pnt, anotherPath, paths, isTail);
         }
     }
 }
@@ -573,6 +598,10 @@ class Point {
     Set<Point> maxNextSet;
     Set<Point> preSet;
     Set<Point> nextSet;
+    List<Deque<Point>> headPaths;
+    List<Deque<Point>> tailPaths;
+    List<String> strPrePath;
+    List<String> strNextPath;
 
     public Point(String serviceName) {
         this.serviceName = serviceName;
@@ -582,6 +611,38 @@ class Point {
         nextSet = new HashSet<>();
         this.maxPreSet = new HashSet<>();
         this.maxNextSet = new HashSet<>();
+    }
+
+    public List<String> getStrPrePath() {
+        return strPrePath;
+    }
+
+    public void setStrPrePath(List<String> strPrePath) {
+        this.strPrePath = strPrePath;
+    }
+
+    public void setStrNextPath(List<String> strNextPath) {
+        this.strNextPath = strNextPath;
+    }
+
+    public List<String> getStrNextPath() {
+        return strNextPath;
+    }
+
+    public List<Deque<Point>> getHeadPaths() {
+        return headPaths;
+    }
+
+    public void setHeadPaths(List<Deque<Point>> headPaths) {
+        this.headPaths = headPaths;
+    }
+
+    public List<Deque<Point>> getTailPaths() {
+        return tailPaths;
+    }
+
+    public void setTailPaths(List<Deque<Point>> tailPaths) {
+        this.tailPaths = tailPaths;
     }
 
     public String getServiceName() {
