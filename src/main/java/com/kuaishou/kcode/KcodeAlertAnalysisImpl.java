@@ -25,6 +25,7 @@ public class KcodeAlertAnalysisImpl implements KcodeAlertAnalysis {
     Map<String, Map<String, Span>> Q2DataMap = new ConcurrentHashMap<>(300);
     /* 点集 */
     Map<String, Point> pointMap = new ConcurrentHashMap<>();
+    Map<String, List<String>> q2Cache = new ConcurrentHashMap<>();
     /* 数据处理线程池 */
     ThreadPoolExecutor threadPool = new ThreadPoolExecutor(8, 8, 60, TimeUnit.SECONDS, new LinkedBlockingQueue<>(10000));
     /* thread safe formatter */
@@ -86,10 +87,15 @@ public class KcodeAlertAnalysisImpl implements KcodeAlertAnalysis {
      */
     @Override
     public Collection<String> getLongestPath(String caller, String responder, String time, String type) {
-        List<String> res = new ArrayList<>();
+        List<String> res;
         Point callerPoint = pointMap.get(caller);
         Point responderPoint = pointMap.get(responder);
+        String key = caller + responder + time + type;
 
+        if ((res = q2Cache.get(key)) != null) {
+            return res;
+        }
+        res = new ArrayList<>();
         // 获得前驱/后继路径
         List<Deque<Point>> headPaths = callerPoint.getHeadPaths();
         // 向后构造后继答案
@@ -129,6 +135,7 @@ public class KcodeAlertAnalysisImpl implements KcodeAlertAnalysis {
                 ansPathBuilder.delete(0, ansPathBuilder.length());
             }
         }
+        q2Cache.put(key, res);
         return res;
     }
 
