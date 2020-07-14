@@ -3,6 +3,9 @@ package com.kuaishou.kcode;
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.nio.file.StandardOpenOption;
 import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -64,105 +67,25 @@ public class KcodeAlertAnalysisImpl implements KcodeAlertAnalysis {
             e.printStackTrace();
         }
         /* 等待线程池任务处理完 */
-        while (threadPool.getQueue().size() > 0 && threadPool.getActiveCount() > 0) {
-        }
-        ;
+        threadPool.shutdown();
+        while (!threadPool.isTerminated()) {}
         // *(String.format("数据解析完毕，耗时 %d ms，开始生成报警信息....", System.currentTimeMillis() - start));
         start = System.currentTimeMillis();
         List<Rule> ruleList = parseRules(alertRules);
         Set<String> res = getAlertInfo(ruleList);
         calcMap();
+        System.gc();
         // *(String.format("报警信息生成完毕，共 %d 条，耗时 %d ms", res.size(), System.currentTimeMillis() - start));
         // *(String.format("点数量 %d，边数量 %d ", pointMap.size(), Q2DataMap.entrySet().size()));
-        return res;
-    }
-
-    private void calcMap() {
-
-        // 扫描 pointSet 点集合，获得所有点的最长前驱和最长后继
-        pointMap.forEach((strServiceName, point) -> {
-            // 得到最长前驱
-            dfs(point, true);
-            // 得到最长后继
-            dfs(point, false);
-        });
-        // pointSet.forEach((strServiceName, point) -> {
-        //     // *(strServiceName);
-        //     // *("pre dis : " + point.getMaxPreDis());
-        //     // *("pre size : " + point.getMaxPreSet().size());
-        //     for (Point pnt : point.getMaxPreSet()) {
-        //         System.out.print(pnt.getServiceName() + " ");
-        //     }
-        //     // *("");
-        //     // *("next dis : " + point.getMaxNextDis());
-        //     // *("next size : " + point.getMaxNextSet().size());
-        //     for (Point pnt : point.getMaxNextSet()) {
-        //         // *(pnt.getServiceName() + " ");
-        //     }
-        //     // *("");
-        // });
-    }
-
-    private int dfs(Point point, boolean findPre) {
-        Set<Point> findPointSet;
-        if (findPre) {
-            findPointSet = point.getPreSet();
-        } else {
-            findPointSet = point.getNextSet();
-        }
-        // 如果前驱/后继为空，那么这个点往前/往后的最长距离为 0
-        if (findPointSet.size() == 0) return 0;
-        int max = -10000;
-        Set<Point> maxDisSet = new HashSet<>();
-        // 当前节点的所有前驱，找前驱距离的最大值
-        for (Point pnt : findPointSet) {
-            int longestDis;
-            if (findPre) {
-                longestDis = pnt.getMaxPreDis();
-            } else {
-                longestDis = pnt.getMaxNextDis();
-            }
-            // 前/后驱已有具体值
-            if (longestDis != -1) {
-                // 加上自身长度
-                longestDis += 1;
-                if (longestDis > max) {
-                    max = longestDis;
-                    maxDisSet.clear();
-                    maxDisSet.add(pnt);
-                } else if (longestDis == max) {
-                    maxDisSet.add(pnt);
-                }
-            } else {
-                // 递归得到距离
-                int dis = dfs(pnt, findPre);
-                dis += 1;
-                if (dis > max) {
-                    max = dis;
-                    maxDisSet.clear();
-                    maxDisSet.add(pnt);
-                } else if (dis == max) {
-                    maxDisSet.add(pnt);
-                }
-            }
-        }
-        int res = max;
-        if (findPre) {
-            point.setMaxPreSet(maxDisSet);
-            point.setMaxPreDis(res);
-        } else {
-            point.setMaxNextSet(maxDisSet);
-            point.setMaxNextDis(res);
-        }
         return res;
     }
 
     private Set<String> getAlertInfo(List<Rule> ruleList) {
         // *(String.format("规则集中有 %d 条规则", ruleList.size()));
         int ruleSize = ruleList.size();
-        Set<String> res = new HashSet<>(2000);
-        // servicePair+ipPair -> type[](p99 或 SR) -> Map<Long, AlertRecord>
-        Map<String, Map<Integer, Map<Long, AlertRecord>>[]> collectMap = new HashMap<>(200);
+        Set<String> res = new HashSet<>(5000);
+        // servicePair+ipPair -> type[](p99 或 SR)-> ruleId -> Map<Long, AlertRecord>
+        Map<String, Map<Integer, Map<Long, AlertRecord>>[]> collectMap = new HashMap<>(400);
         // 遍历所有的servicePair+ipPair
         dataMap.forEach((key, longSpanMap) -> {
             // serviceA, 172.17.60.2, serviceB, 172.17.60.3
@@ -246,19 +169,7 @@ public class KcodeAlertAnalysisImpl implements KcodeAlertAnalysis {
                 });
             }
         });
-        // StringBuilder sb = new StringBuilder();
-        // res.forEach((str) -> sb.append(str).append("\n"));
-        // sb.append("=================\n");
-        // try {
-        //     Files.write(Paths.get("D:/test.data"), sb.toString().getBytes(), StandardOpenOption.APPEND, StandardOpenOption.CREATE);
-        // } catch (IOException e) {
-        //     e.printStackTrace();
-        // }
         return res;
-    }
-
-    private String parseDate(long timestamp) {
-        return dateFormatter.format(timestamp);
     }
 
     private boolean check(Rule rule, String[] e, Long timestamp, Span span) {
@@ -286,6 +197,74 @@ public class KcodeAlertAnalysisImpl implements KcodeAlertAnalysis {
             }
         }
         return false;
+    }
+
+    private void calcMap() {
+        // 扫描 pointSet 点集合，获得所有点的最长前驱和最长后继
+        pointMap.forEach((strServiceName, point) -> {
+            // 得到最长前驱
+            dfs(point, true);
+            // 得到最长后继
+            dfs(point, false);
+        });
+    }
+
+    private int dfs(Point point, boolean findPre) {
+        Set<Point> findPointSet;
+        if (findPre) {
+            findPointSet = point.getPreSet();
+        } else {
+            findPointSet = point.getNextSet();
+        }
+        // 如果前驱/后继为空，那么这个点往前/往后的最长距离为 0
+        if (findPointSet.size() == 0) return 0;
+        int max = -10000;
+        Set<Point> maxDisSet = new HashSet<>();
+        // 当前节点的所有前驱，找前驱距离的最大值
+        for (Point pnt : findPointSet) {
+            int longestDis;
+            if (findPre) {
+                longestDis = pnt.getMaxPreDis();
+            } else {
+                longestDis = pnt.getMaxNextDis();
+            }
+            // 前/后驱已有具体值，记忆化
+            if (longestDis != -1) {
+                // 加上自身长度
+                longestDis += 1;
+                if (longestDis > max) {
+                    max = longestDis;
+                    maxDisSet.clear();
+                    maxDisSet.add(pnt);
+                } else if (longestDis == max) {
+                    maxDisSet.add(pnt);
+                }
+            } else {
+                // 递归得到距离
+                int dis = dfs(pnt, findPre);
+                dis += 1;
+                if (dis > max) {
+                    max = dis;
+                    maxDisSet.clear();
+                    maxDisSet.add(pnt);
+                } else if (dis == max) {
+                    maxDisSet.add(pnt);
+                }
+            }
+        }
+        int res = max;
+        if (findPre) {
+            point.setMaxPreSet(maxDisSet);
+            point.setMaxPreDis(res);
+        } else {
+            point.setMaxNextSet(maxDisSet);
+            point.setMaxNextDis(res);
+        }
+        return res;
+    }
+
+    private String parseDate(long timestamp) {
+        return dateFormatter.format(timestamp);
     }
 
     private List<Rule> parseRules(Collection<String> alertRules) {
@@ -332,6 +311,8 @@ public class KcodeAlertAnalysisImpl implements KcodeAlertAnalysis {
         Span span = longSpanMap.computeIfAbsent(timestamp, (l) -> new Span());
         /* 更新 span 信息 */
         span.update(costTime, suc);
+        /* 一阶段处理结束 */
+
 
         /* callerService,responderService -> formattedTimestamp -> Span */
         String q2Key = callerService + "," + responderService;
@@ -343,8 +324,10 @@ public class KcodeAlertAnalysisImpl implements KcodeAlertAnalysis {
 
         Point enter = pointMap.computeIfAbsent(callerService, (l) -> new Point(callerService));
         Point out = pointMap.computeIfAbsent(responderService, (l) -> new Point(responderService));
-        synchronized (this) {
+        synchronized (enter) {
             enter.getNextSet().add(out);
+        }
+        synchronized (out) {
             out.getPreSet().add(enter);
         }
     }
@@ -415,7 +398,7 @@ public class KcodeAlertAnalysisImpl implements KcodeAlertAnalysis {
     private void generatePath(Point responderPoint, Deque<Point> longestPath, List<Deque<Point>> paths, boolean isTail) {
         Set<Point> findSet;
         if (isTail) {
-            findSet= responderPoint.getMaxNextSet();
+            findSet = responderPoint.getMaxNextSet();
         } else {
             findSet = responderPoint.getMaxPreSet();
         }

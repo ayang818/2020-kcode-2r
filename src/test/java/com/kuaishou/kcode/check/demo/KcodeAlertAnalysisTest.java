@@ -55,12 +55,12 @@ public class KcodeAlertAnalysisTest {
         // Q2Result-2.txt，第二问输出和结果
         String q2ResultFilePathSmall = path3 + "Q2Answer-test.data";
 
-        // TODO 这里顺序不一样也能错？？？ 除了 3 2 1 最后一个都会报错
+        // TODO 这里顺序不一样也能错？？？ 除了 3 2 1 最后一个都会报错. 第一个处理的一定是没有问题的
         // testQuestion12(sourceFilePathSmall, ruleFilePathSmall, q1ResultFilePathSmall, q2ResultFilePathSmall); // 3
         // testQuestion12(sourceFilePathSmall, ruleFilePathSmall, q1ResultFilePathSmall, q2ResultFilePathSmall); // 3
         testQuestion12(sourceFilePath1, ruleFilePath1, q1ResultFilePath1, q2ResultFilePath1); // 1
         testQuestion12(sourceFilePath2, ruleFilePath2, q1ResultFilePath2, q2ResultFilePath2); // 2
-        // testQuestion12(sourceFilePathSmall, ruleFilePathSmall, q1ResultFilePathSmall, q2ResultFilePathSmall); // 3
+        testQuestion12(sourceFilePathSmall, ruleFilePathSmall, q1ResultFilePathSmall, q2ResultFilePathSmall); // 3
     }
 
     public static void testQuestion12(String sourceFilePath, String ruleFilePath, String q1ResultFilePath, String q2ResultFilePath) throws Exception {
@@ -78,6 +78,15 @@ public class KcodeAlertAnalysisTest {
         }
         Set<Q1Result> resultSet = alertResult.stream().map(line -> new Q1Result(line)).collect(Collectors.toSet());
         if (!resultSet.containsAll(q1CheckResult)) {
+            for (Q1Result q1Result : resultSet) {
+                if (!q1CheckResult.contains(q1Result)) {
+                    System.out.println(q1Result);
+                } else {
+                    q1CheckResult.remove(q1Result);
+                }
+            }
+            System.out.println(q1CheckResult);
+            System.out.println(q1CheckResult.size());
             System.out.println("Q1 Error Value");
             return;
         }
