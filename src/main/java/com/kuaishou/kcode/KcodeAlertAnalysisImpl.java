@@ -23,14 +23,14 @@ public class KcodeAlertAnalysisImpl implements KcodeAlertAnalysis {
     Map<String, Map<Long, Span>> dataMap = new ConcurrentHashMap<>(600);
     /* callerService,responderService -> formattedTimestamp -> Span, entryKey 就是边集 */
     Map<String, Map<String, Span>> Q2DataMap = new ConcurrentHashMap<>(300);
+    /* 点集 */
+    Map<String, Point> pointMap = new ConcurrentHashMap<>();
     /* 数据处理线程池 */
-    ThreadPoolExecutor threadPool = new ThreadPoolExecutor(16, 16, 60, TimeUnit.SECONDS, new LinkedBlockingQueue<>(1000));
+    ThreadPoolExecutor threadPool = new ThreadPoolExecutor(8, 8, 60, TimeUnit.SECONDS, new LinkedBlockingQueue<>(10000));
     /* thread safe formatter */
     ThreadLocal<SimpleDateFormat> formatUtil = ThreadLocal.withInitial(() -> new SimpleDateFormat("yyyy-MM-dd HH:mm"));
     /* global date formatter */
     SimpleDateFormat dateFormatter = new SimpleDateFormat("yyyy-MM-dd HH:mm");
-    /* 点集 */
-    Map<String, Point> pointMap = new HashMap<>();
     /* 一个线程池中的任务多少行 */
     int taskNumberThreshold = 4000;
     /* 每分钟的毫秒跨度 */
@@ -78,6 +78,7 @@ public class KcodeAlertAnalysisImpl implements KcodeAlertAnalysis {
     }
 
     private void calcMap() {
+
         // 扫描 pointSet 点集合，获得所有点的最长前驱和最长后继
         pointMap.forEach((strServiceName, point) -> {
             // 得到最长前驱
@@ -342,8 +343,10 @@ public class KcodeAlertAnalysisImpl implements KcodeAlertAnalysis {
 
         Point enter = pointMap.computeIfAbsent(callerService, (l) -> new Point(callerService));
         Point out = pointMap.computeIfAbsent(responderService, (l) -> new Point(responderService));
-        enter.getNextSet().add(out);
-        out.getPreSet().add(enter);
+        synchronized (this) {
+            enter.getNextSet().add(out);
+            out.getPreSet().add(enter);
+        }
     }
 
     List<String> nullRes = new ArrayList<>();

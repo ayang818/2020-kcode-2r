@@ -58,9 +58,9 @@ public class KcodeAlertAnalysisTest {
         // TODO 这里顺序不一样也能错？？？ 除了 3 2 1 最后一个都会报错
         // testQuestion12(sourceFilePathSmall, ruleFilePathSmall, q1ResultFilePathSmall, q2ResultFilePathSmall); // 3
         // testQuestion12(sourceFilePathSmall, ruleFilePathSmall, q1ResultFilePathSmall, q2ResultFilePathSmall); // 3
-        // testQuestion12(sourceFilePath1, ruleFilePath1, q1ResultFilePath1, q2ResultFilePath1); // 1
-        // testQuestion12(sourceFilePath2, ruleFilePath2, q1ResultFilePath2, q2ResultFilePath2); // 2
-        testQuestion12(sourceFilePathSmall, ruleFilePathSmall, q1ResultFilePathSmall, q2ResultFilePathSmall); // 3
+        testQuestion12(sourceFilePath1, ruleFilePath1, q1ResultFilePath1, q2ResultFilePath1); // 1
+        testQuestion12(sourceFilePath2, ruleFilePath2, q1ResultFilePath2, q2ResultFilePath2); // 2
+        // testQuestion12(sourceFilePathSmall, ruleFilePathSmall, q1ResultFilePathSmall, q2ResultFilePathSmall); // 3
     }
 
     public static void testQuestion12(String sourceFilePath, String ruleFilePath, String q1ResultFilePath, String q2ResultFilePath) throws Exception {
