@@ -22,19 +22,17 @@ public class KcodeAlertAnalysisImpl implements KcodeAlertAnalysis {
     Map<String, Map<Long, Span>> Q2DataMap = new ConcurrentHashMap<>(300);
     /* 点集 */
     Map<String, Point> pointMap = new ConcurrentHashMap<>();
-    Map<Integer, List<String>> q2Cache = new ConcurrentHashMap<>(5000);
+    Map<Integer, List<String>> q2Cache = new HashMap<>(20000, 0.4f);
     int maxCount = 5000;
     Semaphore count = new Semaphore(maxCount);
     /* 数据处理线程池 */
-    ThreadPoolExecutor threadPool = new ThreadPoolExecutor(20, 20, 60, TimeUnit.SECONDS, new LinkedBlockingQueue<>(maxCount));
-    /* thread safe formatter */
+    ThreadPoolExecutor threadPool = new ThreadPoolExecutor(12, 12, 60, TimeUnit.SECONDS, new LinkedBlockingQueue<>(maxCount));
     /* global date formatter */
     SimpleDateFormat dateFormatter = new SimpleDateFormat("yyyy-MM-dd HH:mm");
     /* 一个线程池中的任务多少行 */
     int taskNumberThreshold = 1000;
     /* 每分钟的毫秒跨度 */
     int millspace = 60000;
-
 
     @Override
     public Collection<String> alarmMonitor(String path, Collection<String> alertRules) {
