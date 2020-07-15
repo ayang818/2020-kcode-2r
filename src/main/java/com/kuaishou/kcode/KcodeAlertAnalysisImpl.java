@@ -26,7 +26,7 @@ public class KcodeAlertAnalysisImpl implements KcodeAlertAnalysis {
     /* 点集 */
     Map<String, Point> pointMap = new ConcurrentHashMap<>();
     Map<Integer, List<String>> q2Cache = new ConcurrentHashMap<>(5000);
-    int maxCount = 10000;
+    int maxCount = 5000;
     Semaphore count = new Semaphore(maxCount);
     /* 数据处理线程池 */
     ThreadPoolExecutor threadPool = new ThreadPoolExecutor(8, 8, 60, TimeUnit.SECONDS, new LinkedBlockingQueue<>(maxCount));
@@ -135,6 +135,7 @@ public class KcodeAlertAnalysisImpl implements KcodeAlertAnalysis {
                 }
             });
         });
+        dataMap = null;
         // 满足的规则，format后的时间，主调服务，主调ip，被调服务，被调ip，报警值（p99或SR）
         // 遍历 collectMap，得到最终答案
         collectMap.forEach((key, typeArray) -> {
@@ -304,13 +305,16 @@ public class KcodeAlertAnalysisImpl implements KcodeAlertAnalysis {
                     List<String> srLongestPath = getLongestPath(point, pnt, formattedDate, ALERT_TYPE_SR);
                     // String p99Key = strServiceName + pnt.getServiceName() + formattedDate + ALERT_TYPE_P99;
                     // String srKey = strServiceName + pnt.getServiceName() + formattedDate + ALERT_TYPE_SR;
-                    q2Cache.put(hash(strServiceName, pnt.getServiceName(), formattedDate, ALERT_TYPE_P99), p99longestPath);
-                    q2Cache.put(hash(strServiceName, pnt.getServiceName(), formattedDate, ALERT_TYPE_SR), srLongestPath);
+                    int hash1 = hash(strServiceName, pnt.getServiceName(), formattedDate, ALERT_TYPE_P99);
+                    q2Cache.put(hash1, p99longestPath);
+                    int hash2 = hash(strServiceName, pnt.getServiceName(), formattedDate, ALERT_TYPE_SR);
+                    q2Cache.put(hash2, srLongestPath);
                     // q2Cache.put(p99Key, p99longestPath);
                     // q2Cache.put(srKey, srLongestPath);
                 });
             }
         });
+
     }
 
     private int dfs(Point point, boolean findPre) {
