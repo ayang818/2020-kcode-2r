@@ -26,7 +26,7 @@ public class KcodeAlertAnalysisImpl implements KcodeAlertAnalysis {
     int maxCount = 5000;
     Semaphore count = new Semaphore(maxCount);
     /* 数据处理线程池 */
-    ThreadPoolExecutor threadPool = new ThreadPoolExecutor(4, 4, 60, TimeUnit.SECONDS, new LinkedBlockingQueue<>(maxCount));
+    ThreadPoolExecutor threadPool = new ThreadPoolExecutor(8, 8, 60, TimeUnit.SECONDS, new LinkedBlockingQueue<>(maxCount));
     /* thread safe formatter */
     /* global date formatter */
     SimpleDateFormat dateFormatter = new SimpleDateFormat("yyyy-MM-dd HH:mm");
