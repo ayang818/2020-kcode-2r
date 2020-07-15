@@ -8,10 +8,7 @@ import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 import java.text.SimpleDateFormat;
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.kuaishou.kcode.Utils.decimalFormat;
@@ -29,14 +26,16 @@ public class KcodeAlertAnalysisImpl implements KcodeAlertAnalysis {
     /* 点集 */
     Map<String, Point> pointMap = new ConcurrentHashMap<>();
     Map<Integer, List<String>> q2Cache = new ConcurrentHashMap<>();
+    int maxCount = 10000;
+    Semaphore count = new Semaphore(maxCount);
     /* 数据处理线程池 */
-    ThreadPoolExecutor threadPool = new ThreadPoolExecutor(12, 12, 60, TimeUnit.SECONDS, new LinkedBlockingQueue<>(10000));
+    ThreadPoolExecutor threadPool = new ThreadPoolExecutor(8, 8, 60, TimeUnit.SECONDS, new LinkedBlockingQueue<>(maxCount));
     /* thread safe formatter */
     ThreadLocal<SimpleDateFormat> formatUtil = ThreadLocal.withInitial(() -> new SimpleDateFormat("yyyy-MM-dd HH:mm"));
     /* global date formatter */
     SimpleDateFormat dateFormatter = new SimpleDateFormat("yyyy-MM-dd HH:mm");
     /* 一个线程池中的任务多少行 */
-    int taskNumberThreshold = 2000;
+    int taskNumberThreshold = 3000;
     /* 每分钟的毫秒跨度 */
     int millspace = 60000;
 
@@ -55,6 +54,7 @@ public class KcodeAlertAnalysisImpl implements KcodeAlertAnalysis {
                 size += 1;
                 if (size >= taskNumberThreshold) {
                     String[] tmpLines = lines;
+                    count.acquire();
                     threadPool.execute(() -> handleLines(tmpLines, taskNumberThreshold));
                     lines = new String[taskNumberThreshold];
                     size = 0;
@@ -64,7 +64,7 @@ public class KcodeAlertAnalysisImpl implements KcodeAlertAnalysis {
             final int sz = size;
             threadPool.execute(() -> handleLines(tmpLines, sz));
             bufferedReader.close();
-        } catch (IOException e) {
+        } catch (IOException | InterruptedException e) {
             e.printStackTrace();
         }
         /* 等待线程池任务处理完 */
@@ -310,16 +310,6 @@ public class KcodeAlertAnalysisImpl implements KcodeAlertAnalysis {
                 });
             }
         });
-        StringBuilder sb = new StringBuilder();
-        q2Cache.forEach((str, v) -> {
-            sb.append(str).append("\n");
-            sb.append(v.toString()).append("\n");
-        });
-        try {
-            Files.write(Paths.get("D:/test.data"), sb.toString().getBytes(), StandardOpenOption.APPEND);
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
     }
 
     private int dfs(Point point, boolean findPre) {
@@ -382,7 +372,8 @@ public class KcodeAlertAnalysisImpl implements KcodeAlertAnalysis {
             findSet = responderPoint.getMaxNextSet();
         } else {
             findSet = responderPoint.getMaxPreSet();
-        }
+        }int maxCount = 10000;
+        Semaphore count = new Semaphore(maxCount);
         // 没有后继说明，已经到终点了
         if (findSet.size() == 0) paths.add(longestPath);
         for (Point pnt : findSet) {
@@ -439,6 +430,7 @@ public class KcodeAlertAnalysisImpl implements KcodeAlertAnalysis {
         for (int i = 0; i < len; i++) {
             handleLine(lines[i]);
         }
+        count.release();
     }
 
     private void handleLine(String line) {
