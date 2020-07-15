@@ -28,9 +28,9 @@ public class KcodeAlertAnalysisImpl implements KcodeAlertAnalysis {
     Map<String, Map<String, Span>> Q2DataMap = new ConcurrentHashMap<>(300);
     /* 点集 */
     Map<String, Point> pointMap = new ConcurrentHashMap<>();
-    Map<String, List<String>> q2Cache = new ConcurrentHashMap<>();
+    Map<Integer, List<String>> q2Cache = new ConcurrentHashMap<>();
     /* 数据处理线程池 */
-    ThreadPoolExecutor threadPool = new ThreadPoolExecutor(8, 8, 60, TimeUnit.SECONDS, new LinkedBlockingQueue<>(10000));
+    ThreadPoolExecutor threadPool = new ThreadPoolExecutor(12, 12, 60, TimeUnit.SECONDS, new LinkedBlockingQueue<>(10000));
     /* thread safe formatter */
     ThreadLocal<SimpleDateFormat> formatUtil = ThreadLocal.withInitial(() -> new SimpleDateFormat("yyyy-MM-dd HH:mm"));
     /* global date formatter */
@@ -93,7 +93,7 @@ public class KcodeAlertAnalysisImpl implements KcodeAlertAnalysis {
     @Override
     public Collection<String> getLongestPath(String caller, String responder, String time, String type) {
         String key = caller + responder + time + type;
-        List<String> list = q2Cache.get(key);
+        List<String> list = q2Cache.get(hash(caller, responder, time, type));
         if (list == null) return nullList;
         return list;
     }
@@ -305,8 +305,8 @@ public class KcodeAlertAnalysisImpl implements KcodeAlertAnalysis {
                     List<String> srLongestPath = getLongestPath(point, pnt, formattedDate, ALERT_TYPE_SR);
                     String p99Key = strServiceName + pnt.getServiceName() + formattedDate + ALERT_TYPE_P99;
                     String srKey = strServiceName + pnt.getServiceName() + formattedDate + ALERT_TYPE_SR;
-                    q2Cache.put(p99Key, p99longestPath);
-                    q2Cache.put(srKey, srLongestPath);
+                    q2Cache.put(hash(strServiceName, pnt.getServiceName(), formattedDate, ALERT_TYPE_P99), p99longestPath);
+                    q2Cache.put(hash(strServiceName, pnt.getServiceName(), formattedDate, ALERT_TYPE_SR), srLongestPath);
                 });
             }
         });
@@ -476,6 +476,15 @@ public class KcodeAlertAnalysisImpl implements KcodeAlertAnalysis {
         synchronized (out) {
             out.getPreSet().add(enter);
         }
+    }
+
+    private int hash(String a, String b, String c, String d) {
+        int res = 1;
+        res = 31 * res + a.hashCode();
+        res = 31 * res + b.hashCode();
+        res = 31 * res + c.hashCode();
+        res = 31 * res + d.hashCode();
+        return res;
     }
 }
 
