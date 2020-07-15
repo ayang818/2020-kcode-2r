@@ -22,7 +22,7 @@ public class KcodeAlertAnalysisImpl implements KcodeAlertAnalysis {
     Map<String, Map<Long, Span>> Q2DataMap = new ConcurrentHashMap<>(300);
     /* 点集 */
     Map<String, Point> pointMap = new ConcurrentHashMap<>();
-    Map<CompactKey, List<String>> q2Cache = new ConcurrentHashMap<>(5000);
+    Map<Integer, List<String>> q2Cache = new ConcurrentHashMap<>(5000);
     int maxCount = 5000;
     Semaphore count = new Semaphore(maxCount);
     /* 数据处理线程池 */
@@ -67,6 +67,9 @@ public class KcodeAlertAnalysisImpl implements KcodeAlertAnalysis {
         List<Rule> ruleList = parseRules(alertRules);
         Set<String> res = getAlertInfo(ruleList);
         calcByPointMap();
+        pointMap = null;
+        Q2DataMap = null;
+        dataMap = null;
         return res;
     }
 
@@ -80,9 +83,18 @@ public class KcodeAlertAnalysisImpl implements KcodeAlertAnalysis {
      */
     @Override
     public Collection<String> getLongestPath(String caller, String responder, String time, String type) {
-        List<String> list = q2Cache.get(new CompactKey(caller, responder, time, type));
+        List<String> list = q2Cache.get(hash(caller, responder, time, type));
         if (list == null) return nullList;
         return list;
+    }
+
+    private int hash(String a, String b, String c, String d) {
+        int res = 1;
+        res = 31 * res + a.hashCode();
+        res = 31 * res + b.hashCode();
+        res = 31 * res + c.hashCode();
+        res = 31 * res + d.hashCode();
+        return res;
     }
 
     private Set<String> getAlertInfo(List<Rule> ruleList) {
@@ -292,8 +304,8 @@ public class KcodeAlertAnalysisImpl implements KcodeAlertAnalysis {
                     // String p99Key = strServiceName + pnt.getServiceName() + formattedDate + ALERT_TYPE_P99;
                     // String srKey = strServiceName + pnt.getServiceName() + formattedDate + ALERT_TYPE_SR;
                     String formattedDate = dateFormatter.format(timestamp);
-                    q2Cache.put(new CompactKey(strServiceName, pnt.getServiceName(), formattedDate, ALERT_TYPE_P99), p99longestPath);
-                    q2Cache.put(new CompactKey(strServiceName, pnt.getServiceName(), formattedDate, ALERT_TYPE_SR), srLongestPath);
+                    q2Cache.put(hash(strServiceName, pnt.getServiceName(), formattedDate, ALERT_TYPE_P99), p99longestPath);
+                    q2Cache.put(hash(strServiceName, pnt.getServiceName(), formattedDate, ALERT_TYPE_SR), srLongestPath);
                     // q2Cache.put(p99Key, p99longestPath);
                     // q2Cache.put(srKey, srLongestPath);
                 });
