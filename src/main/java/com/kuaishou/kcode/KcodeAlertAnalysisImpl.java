@@ -35,14 +35,12 @@ public class KcodeAlertAnalysisImpl implements KcodeAlertAnalysis {
     /* global date formatter */
     SimpleDateFormat dateFormatter = new SimpleDateFormat("yyyy-MM-dd HH:mm");
     /* 一个线程池中的任务多少行 */
-    int taskNumberThreshold = 3000;
+    int taskNumberThreshold = 1000;
     /* 每分钟的毫秒跨度 */
     int millspace = 60000;
 
     @Override
     public Collection<String> alarmMonitor(String path, Collection<String> alertRules) {
-        long start = System.currentTimeMillis();
-        // *("开始读取日志......");
         BufferedReader bufferedReader = null;
         String line;
         try {
@@ -55,8 +53,7 @@ public class KcodeAlertAnalysisImpl implements KcodeAlertAnalysis {
                 if (size >= taskNumberThreshold) {
                     String[] tmpLines = lines;
                     count.acquire();
-                    // threadPool.execute(() -> handleLines(tmpLines, taskNumberThreshold));
-                    handleLines(tmpLines, taskNumberThreshold);
+                    threadPool.execute(() -> handleLines(tmpLines, taskNumberThreshold));
                     lines = new String[taskNumberThreshold];
                     size = 0;
                 }
@@ -72,13 +69,14 @@ public class KcodeAlertAnalysisImpl implements KcodeAlertAnalysis {
         threadPool.shutdown();
         while (!threadPool.isTerminated()) {
         }
-        // *(String.format("数据解析完毕，耗时 %d ms，开始生成报警信息....", System.currentTimeMillis() - start));
-        start = System.currentTimeMillis();
         List<Rule> ruleList = parseRules(alertRules);
         Set<String> res = getAlertInfo(ruleList);
         calcByPointMap();
-        // *(String.format("报警信息生成完毕，共 %d 条，耗时 %d ms", res.size(), System.currentTimeMillis() - start));
-        // *(String.format("点数量 %d，边数量 %d ", pointMap.size(), Q2DataMap.entrySet().size()));
+        try {
+            Thread.sleep(60000);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
         return res;
     }
 
