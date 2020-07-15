@@ -3,6 +3,9 @@ package com.kuaishou.kcode;
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.nio.file.StandardOpenOption;
 import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -33,7 +36,7 @@ public class KcodeAlertAnalysisImpl implements KcodeAlertAnalysis {
     /* global date formatter */
     SimpleDateFormat dateFormatter = new SimpleDateFormat("yyyy-MM-dd HH:mm");
     /* 一个线程池中的任务多少行 */
-    int taskNumberThreshold = 4000;
+    int taskNumberThreshold = 2000;
     /* 每分钟的毫秒跨度 */
     int millspace = 60000;
 
@@ -78,6 +81,8 @@ public class KcodeAlertAnalysisImpl implements KcodeAlertAnalysis {
         return res;
     }
 
+    List<String> nullList = new ArrayList<>();
+
     /**
      * @param caller    主调服务名称
      * @param responder 被调服务名称
@@ -87,56 +92,10 @@ public class KcodeAlertAnalysisImpl implements KcodeAlertAnalysis {
      */
     @Override
     public Collection<String> getLongestPath(String caller, String responder, String time, String type) {
-        List<String> res;
-        Point callerPoint = pointMap.get(caller);
-        Point responderPoint = pointMap.get(responder);
         String key = caller + responder + time + type;
-
-        if ((res = q2Cache.get(key)) != null) {
-            return res;
-        }
-        res = new ArrayList<>();
-        // 获得前驱/后继路径
-        List<Deque<Point>> headPaths = callerPoint.getHeadPaths();
-        // 向后构造后继答案
-        List<Deque<Point>> tailPaths = responderPoint.getTailPaths();
-
-        StringBuilder servicePathBuilder = new StringBuilder();
-        StringBuilder ansPathBuilder = new StringBuilder();
-        Point callerP, responderP;
-        List<Point> newPath;
-        String compactedKey;
-        for (Deque<Point> hPath : headPaths) {
-            for (Deque<Point> tPath : tailPaths) {
-                int len = hPath.size() + tPath.size();
-                newPath = new ArrayList<>(len);
-                newPath.addAll(hPath);
-                newPath.addAll(tPath);
-                boolean flag = true;
-                for (int i = 0; i <= len - 2; i++) {
-                    callerP = newPath.get(i);
-                    responderP = newPath.get(i + 1);
-                    if (flag) servicePathBuilder.append(callerP.getServiceName());
-                    servicePathBuilder.append("->").append(responderP.getServiceName());
-                    compactedKey = callerP.getServiceName() + "," + responderP.getServiceName();
-                    Span span = Q2DataMap.get(compactedKey).get(time);
-                    if (!flag) ansPathBuilder.append(",");
-                    if (type.equals(ALERT_TYPE_P99)) {
-                        ansPathBuilder.append(span.getP99()).append("ms");
-                    } else {
-                        ansPathBuilder.append(decimalFormat(span.getSucRate())).append("%");
-                    }
-                    if (flag) flag = false;
-                }
-                String record = servicePathBuilder.toString() + "|" + ansPathBuilder.toString();
-                // *(record);
-                res.add(record);
-                servicePathBuilder.delete(0, servicePathBuilder.length());
-                ansPathBuilder.delete(0, ansPathBuilder.length());
-            }
-        }
-        q2Cache.put(key, res);
-        return res;
+        List<String> list = q2Cache.get(key);
+        if (list == null) return nullList;
+        return list;
     }
 
 
@@ -259,6 +218,52 @@ public class KcodeAlertAnalysisImpl implements KcodeAlertAnalysis {
         return false;
     }
 
+    public List<String> getLongestPath(Point callerPoint, Point responderPoint, String time, String type) {
+        List<String> res;
+
+        res = new ArrayList<>();
+        // 获得前驱/后继路径
+        List<Deque<Point>> headPaths = callerPoint.getHeadPaths();
+        // 向后构造后继答案
+        List<Deque<Point>> tailPaths = responderPoint.getTailPaths();
+
+        StringBuilder servicePathBuilder = new StringBuilder();
+        StringBuilder ansPathBuilder = new StringBuilder();
+        Point callerP, responderP;
+        List<Point> newPath;
+        String compactedKey;
+        for (Deque<Point> hPath : headPaths) {
+            for (Deque<Point> tPath : tailPaths) {
+                int len = hPath.size() + tPath.size();
+                newPath = new ArrayList<>(len);
+                newPath.addAll(hPath);
+                newPath.addAll(tPath);
+                boolean flag = true;
+                for (int i = 0; i <= len - 2; i++) {
+                    callerP = newPath.get(i);
+                    responderP = newPath.get(i + 1);
+                    if (flag) servicePathBuilder.append(callerP.getServiceName());
+                    servicePathBuilder.append("->").append(responderP.getServiceName());
+                    compactedKey = callerP.getServiceName() + "," + responderP.getServiceName();
+                    Span span = Q2DataMap.get(compactedKey).get(time);
+                    if (!flag) ansPathBuilder.append(",");
+                    if (type.equals(ALERT_TYPE_P99)) {
+                        ansPathBuilder.append(span.getP99()).append("ms");
+                    } else {
+                        ansPathBuilder.append(decimalFormat(span.getSucRate())).append("%");
+                    }
+                    if (flag) flag = false;
+                }
+                String record = servicePathBuilder.toString() + "|" + ansPathBuilder.toString();
+                // *(record);
+                res.add(record);
+                servicePathBuilder.delete(0, servicePathBuilder.length());
+                ansPathBuilder.delete(0, ansPathBuilder.length());
+            }
+        }
+        return res;
+    }
+
     private void calcByPointMap() {
         // 扫描 pointSet 点集合，获得所有点的最长前驱和最长后继
         pointMap.forEach((strServiceName, point) -> {
@@ -288,6 +293,33 @@ public class KcodeAlertAnalysisImpl implements KcodeAlertAnalysis {
             List<Deque<Point>> tailPaths = point.getTailPaths();
             point.setStrNextPath(geneStrPaths(point, tailPaths));
         });
+        // 生成第二问最终答案
+        pointMap.forEach((strServiceName, point) -> {
+            Set<Point> maxNextSet = point.getNextSet();
+            for (Point pnt : maxNextSet) {
+                String key = strServiceName + "," + pnt.getServiceName();
+                Map<String, Span> stringSpanMap = Q2DataMap.get(key);
+                stringSpanMap.forEach((formattedDate, span) -> {
+                    // callerService + responderService + formattedTimestamp + p99/sr 为 key
+                    List<String> p99longestPath = getLongestPath(point, pnt, formattedDate, ALERT_TYPE_P99);
+                    List<String> srLongestPath = getLongestPath(point, pnt, formattedDate, ALERT_TYPE_SR);
+                    String p99Key = strServiceName + pnt.getServiceName() + formattedDate + ALERT_TYPE_P99;
+                    String srKey = strServiceName + pnt.getServiceName() + formattedDate + ALERT_TYPE_SR;
+                    q2Cache.put(p99Key, p99longestPath);
+                    q2Cache.put(srKey, srLongestPath);
+                });
+            }
+        });
+        StringBuilder sb = new StringBuilder();
+        q2Cache.forEach((str, v) -> {
+            sb.append(str).append("\n");
+            sb.append(v.toString()).append("\n");
+        });
+        try {
+            Files.write(Paths.get("D:/test.data"), sb.toString().getBytes(), StandardOpenOption.APPEND);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 
     private int dfs(Point point, boolean findPre) {
@@ -427,7 +459,6 @@ public class KcodeAlertAnalysisImpl implements KcodeAlertAnalysis {
         /* 更新 span 信息 */
         span.update(costTime, suc);
         /* 一阶段处理结束 */
-
 
         /* callerService,responderService -> formattedTimestamp -> Span */
         String q2Key = callerService + "," + responderService;
