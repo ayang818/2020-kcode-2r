@@ -35,6 +35,7 @@ public class KcodeAlertAnalysisImpl implements KcodeAlertAnalysis {
     /* 每分钟的毫秒跨度 */
     int millspace = 60000;
 
+
     @Override
     public Collection<String> alarmMonitor(String path, Collection<String> alertRules) {
         BufferedReader bufferedReader = null;
