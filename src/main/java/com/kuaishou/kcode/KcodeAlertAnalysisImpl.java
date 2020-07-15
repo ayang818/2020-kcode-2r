@@ -3,9 +3,6 @@ package com.kuaishou.kcode;
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Paths;
-import java.nio.file.StandardOpenOption;
 import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.concurrent.*;
@@ -22,16 +19,15 @@ public class KcodeAlertAnalysisImpl implements KcodeAlertAnalysis {
     /* callerService+callerIp+responderService+responderIp -> Map(timestamp -> Span) */
     Map<String, Map<Long, Span>> dataMap = new ConcurrentHashMap<>(600);
     /* callerService,responderService -> formattedTimestamp -> Span, entryKey 就是边集 */
-    Map<String, Map<String, Span>> Q2DataMap = new ConcurrentHashMap<>(300);
+    Map<String, Map<Long, Span>> Q2DataMap = new ConcurrentHashMap<>(300);
     /* 点集 */
     Map<String, Point> pointMap = new ConcurrentHashMap<>();
     Map<Integer, List<String>> q2Cache = new ConcurrentHashMap<>(5000);
     int maxCount = 5000;
     Semaphore count = new Semaphore(maxCount);
     /* 数据处理线程池 */
-    ThreadPoolExecutor threadPool = new ThreadPoolExecutor(8, 8, 60, TimeUnit.SECONDS, new LinkedBlockingQueue<>(maxCount));
+    ThreadPoolExecutor threadPool = new ThreadPoolExecutor(16, 16, 60, TimeUnit.SECONDS, new LinkedBlockingQueue<>(maxCount));
     /* thread safe formatter */
-    ThreadLocal<SimpleDateFormat> formatUtil = ThreadLocal.withInitial(() -> new SimpleDateFormat("yyyy-MM-dd HH:mm"));
     /* global date formatter */
     SimpleDateFormat dateFormatter = new SimpleDateFormat("yyyy-MM-dd HH:mm");
     /* 一个线程池中的任务多少行 */
@@ -41,6 +37,11 @@ public class KcodeAlertAnalysisImpl implements KcodeAlertAnalysis {
 
     @Override
     public Collection<String> alarmMonitor(String path, Collection<String> alertRules) {
+        // try {
+        //     Files.lines(Paths.get(path)).parallel().forEach(this::handleLine);
+        // } catch (IOException e) {
+        //     e.printStackTrace();
+        // }
         BufferedReader bufferedReader = null;
         String line;
         try {
@@ -67,16 +68,10 @@ public class KcodeAlertAnalysisImpl implements KcodeAlertAnalysis {
         }
         /* 等待线程池任务处理完 */
         threadPool.shutdown();
-        while (!threadPool.isTerminated()) {
-        }
+        while (!threadPool.isTerminated()) {}
         List<Rule> ruleList = parseRules(alertRules);
         Set<String> res = getAlertInfo(ruleList);
         calcByPointMap();
-        try {
-            Thread.sleep(60000);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
         return res;
     }
 
@@ -96,7 +91,6 @@ public class KcodeAlertAnalysisImpl implements KcodeAlertAnalysis {
         if (list == null) return nullList;
         return list;
     }
-
 
     private Set<String> getAlertInfo(List<Rule> ruleList) {
         // *(String.format("规则集中有 %d 条规则", ruleList.size()));
@@ -218,7 +212,7 @@ public class KcodeAlertAnalysisImpl implements KcodeAlertAnalysis {
         return false;
     }
 
-    public List<String> getLongestPath(Point callerPoint, Point responderPoint, String time, String type) {
+    public List<String> getLongestPath(Point callerPoint, Point responderPoint, Long time, String type) {
         List<String> res;
         res = new ArrayList<>();
         // 获得前驱/后继路径
@@ -297,13 +291,14 @@ public class KcodeAlertAnalysisImpl implements KcodeAlertAnalysis {
             Set<Point> maxNextSet = point.getNextSet();
             for (Point pnt : maxNextSet) {
                 String key = strServiceName + "," + pnt.getServiceName();
-                Map<String, Span> stringSpanMap = Q2DataMap.get(key);
-                stringSpanMap.forEach((formattedDate, span) -> {
+                Map<Long, Span> stringSpanMap = Q2DataMap.get(key);
+                stringSpanMap.forEach((timestamp, span) -> {
                     // callerService + responderService + formattedTimestamp + p99/sr 为 key
-                    List<String> p99longestPath = getLongestPath(point, pnt, formattedDate, ALERT_TYPE_P99);
-                    List<String> srLongestPath = getLongestPath(point, pnt, formattedDate, ALERT_TYPE_SR);
+                    List<String> p99longestPath = getLongestPath(point, pnt, timestamp, ALERT_TYPE_P99);
+                    List<String> srLongestPath = getLongestPath(point, pnt, timestamp, ALERT_TYPE_SR);
                     // String p99Key = strServiceName + pnt.getServiceName() + formattedDate + ALERT_TYPE_P99;
                     // String srKey = strServiceName + pnt.getServiceName() + formattedDate + ALERT_TYPE_SR;
+                    String formattedDate = dateFormatter.format(timestamp);
                     int hash1 = hash(strServiceName, pnt.getServiceName(), formattedDate, ALERT_TYPE_P99);
                     q2Cache.put(hash1, p99longestPath);
                     int hash2 = hash(strServiceName, pnt.getServiceName(), formattedDate, ALERT_TYPE_SR);
@@ -458,10 +453,8 @@ public class KcodeAlertAnalysisImpl implements KcodeAlertAnalysis {
 
         /* callerService,responderService -> formattedTimestamp -> Span */
         String q2Key = callerService + "," + responderService;
-        SimpleDateFormat ft = formatUtil.get();
-        String date = ft.format(timestamp);
-        Map<String, Span> nextMap = Q2DataMap.computeIfAbsent(q2Key, (l) -> new ConcurrentHashMap<>());
-        Span serviceSpan = nextMap.computeIfAbsent(date, (l) -> new Span());
+        Map<Long, Span> nextMap = Q2DataMap.computeIfAbsent(q2Key, (l) -> new ConcurrentHashMap<>());
+        Span serviceSpan = nextMap.computeIfAbsent(timestamp, (l) -> new Span());
         serviceSpan.update(costTime, suc);
 
         Point enter = pointMap.computeIfAbsent(callerService, (l) -> new Point(callerService));
