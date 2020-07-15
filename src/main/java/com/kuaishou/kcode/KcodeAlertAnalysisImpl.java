@@ -26,12 +26,12 @@ public class KcodeAlertAnalysisImpl implements KcodeAlertAnalysis {
     int maxCount = 5000;
     Semaphore count = new Semaphore(maxCount);
     /* 数据处理线程池 */
-    ThreadPoolExecutor threadPool = new ThreadPoolExecutor(16, 16, 60, TimeUnit.SECONDS, new LinkedBlockingQueue<>(maxCount));
+    ThreadPoolExecutor threadPool = new ThreadPoolExecutor(20, 20, 60, TimeUnit.SECONDS, new LinkedBlockingQueue<>(maxCount));
     /* thread safe formatter */
     /* global date formatter */
     SimpleDateFormat dateFormatter = new SimpleDateFormat("yyyy-MM-dd HH:mm");
     /* 一个线程池中的任务多少行 */
-    int taskNumberThreshold = 2000;
+    int taskNumberThreshold = 1000;
     /* 每分钟的毫秒跨度 */
     int millspace = 60000;
 
@@ -70,30 +70,6 @@ public class KcodeAlertAnalysisImpl implements KcodeAlertAnalysis {
         pointMap = null;
         Q2DataMap = null;
         dataMap = null;
-        return res;
-    }
-
-    List<String> nullList = new ArrayList<>();
-    /**
-     * @param caller    主调服务名称
-     * @param responder 被调服务名称
-     * @param time      报警发生时间（分钟），格式 yyyy-MM-dd hh:mm
-     * @param type      监控触发类型 SR P99
-     * @return [serviceZ->serviceA->serviceB|100.00%,-1% ... ]
-     */
-    @Override
-    public Collection<String> getLongestPath(String caller, String responder, String time, String type) {
-        List<String> list = q2Cache.get(hash(caller, responder, time, type));
-        if (list == null) return nullList;
-        return list;
-    }
-
-    private int hash(String a, String b, String c, String d) {
-        int res = 1;
-        res = 31 * res + a.hashCode();
-        res = 31 * res + b.hashCode();
-        res = 31 * res + c.hashCode();
-        res = 31 * res + d.hashCode();
         return res;
     }
 
@@ -146,7 +122,6 @@ public class KcodeAlertAnalysisImpl implements KcodeAlertAnalysis {
                     timestampAlertRecordMap.forEach((timestamp, alertRecord) -> {
                         int triggerMinute = alertRecord.getTriggerMinute();
                         int left = 0, right = 0;
-                        // TODO remove after found
                         // 向前找 triggerMinute 分钟
                         while (left < triggerMinute) {
                             if (timestampAlertRecordMap.get(timestamp - (left + 1) * millspace) != null) {
@@ -303,7 +278,7 @@ public class KcodeAlertAnalysisImpl implements KcodeAlertAnalysis {
                     List<String> srLongestPath = getLongestPath(point, pnt, timestamp, ALERT_TYPE_SR);
                     // String p99Key = strServiceName + pnt.getServiceName() + formattedDate + ALERT_TYPE_P99;
                     // String srKey = strServiceName + pnt.getServiceName() + formattedDate + ALERT_TYPE_SR;
-                    String formattedDate = dateFormatter.format(timestamp);
+                    String formattedDate = parseDate(timestamp);
                     q2Cache.put(hash(strServiceName, pnt.getServiceName(), formattedDate, ALERT_TYPE_P99), p99longestPath);
                     q2Cache.put(hash(strServiceName, pnt.getServiceName(), formattedDate, ALERT_TYPE_SR), srLongestPath);
                     // q2Cache.put(p99Key, p99longestPath);
@@ -401,6 +376,30 @@ public class KcodeAlertAnalysisImpl implements KcodeAlertAnalysis {
             pathBuilder.delete(0, pathBuilder.length());
         }
         return strPaths;
+    }
+
+    List<String> nullList = new ArrayList<>();
+    /**
+     * @param caller    主调服务名称
+     * @param responder 被调服务名称
+     * @param time      报警发生时间（分钟），格式 yyyy-MM-dd hh:mm
+     * @param type      监控触发类型 SR P99
+     * @return [serviceZ->serviceA->serviceB|100.00%,-1% ... ]
+     */
+    @Override
+    public Collection<String> getLongestPath(String caller, String responder, String time, String type) {
+        List<String> list = q2Cache.get(hash(caller, responder, time, type));
+        if (list == null) return nullList;
+        return list;
+    }
+
+    private int hash(String a, String b, String c, String d) {
+        int res = 1;
+        res = 31 * res + a.hashCode();
+        res = 31 * res + b.hashCode();
+        res = 31 * res + c.hashCode();
+        res = 31 * res + d.hashCode();
+        return res;
     }
 
     private String parseDate(long timestamp) {
