@@ -46,8 +46,7 @@ public class KcodeAlertAnalysisImpl implements KcodeAlertAnalysis {
         BufferedReader bufferedReader = null;
         String line;
         try {
-            int bufferSize = 1024 * 4;
-            bufferedReader = new BufferedReader(new FileReader(path), bufferSize);
+            bufferedReader = new BufferedReader(new FileReader(path));
             int size = 0;
             String[] lines = new String[taskNumberThreshold];
             while ((line = bufferedReader.readLine()) != null) {
