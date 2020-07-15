@@ -22,7 +22,7 @@ public class KcodeAlertAnalysisImpl implements KcodeAlertAnalysis {
     Map<String, Map<Long, Span>> Q2DataMap = new ConcurrentHashMap<>(300);
     /* 点集 */
     Map<String, Point> pointMap = new ConcurrentHashMap<>();
-    Map<Integer, List<String>> q2Cache = new ConcurrentHashMap<>(5000);
+    Map<CompactKey, List<String>> q2Cache = new ConcurrentHashMap<>(5000);
     int maxCount = 5000;
     Semaphore count = new Semaphore(maxCount);
     /* 数据处理线程池 */
@@ -80,9 +80,7 @@ public class KcodeAlertAnalysisImpl implements KcodeAlertAnalysis {
      */
     @Override
     public Collection<String> getLongestPath(String caller, String responder, String time, String type) {
-        // String key = caller + responder + time + type;
-        List<String> list = q2Cache.get(hash(caller, responder, time, type));
-        // List<String> list = q2Cache.get(key);
+        List<String> list = q2Cache.get(new CompactKey(caller, responder, time, type));
         if (list == null) return nullList;
         return list;
     }
@@ -294,10 +292,8 @@ public class KcodeAlertAnalysisImpl implements KcodeAlertAnalysis {
                     // String p99Key = strServiceName + pnt.getServiceName() + formattedDate + ALERT_TYPE_P99;
                     // String srKey = strServiceName + pnt.getServiceName() + formattedDate + ALERT_TYPE_SR;
                     String formattedDate = dateFormatter.format(timestamp);
-                    int hash1 = hash(strServiceName, pnt.getServiceName(), formattedDate, ALERT_TYPE_P99);
-                    q2Cache.put(hash1, p99longestPath);
-                    int hash2 = hash(strServiceName, pnt.getServiceName(), formattedDate, ALERT_TYPE_SR);
-                    q2Cache.put(hash2, srLongestPath);
+                    q2Cache.put(new CompactKey(strServiceName, pnt.getServiceName(), formattedDate, ALERT_TYPE_P99), p99longestPath);
+                    q2Cache.put(new CompactKey(strServiceName, pnt.getServiceName(), formattedDate, ALERT_TYPE_SR), srLongestPath);
                     // q2Cache.put(p99Key, p99longestPath);
                     // q2Cache.put(srKey, srLongestPath);
                 });
@@ -460,15 +456,6 @@ public class KcodeAlertAnalysisImpl implements KcodeAlertAnalysis {
         synchronized (out) {
             out.getPreSet().add(enter);
         }
-    }
-
-    private int hash(String a, String b, String c, String d) {
-        int res = 1;
-        res = 31 * res + a.hashCode();
-        res = 31 * res + b.hashCode();
-        res = 31 * res + c.hashCode();
-        res = 31 * res + d.hashCode();
-        return res;
     }
 }
 
@@ -743,5 +730,35 @@ class Point {
     @Override
     public int hashCode() {
         return Objects.hash(serviceName);
+    }
+}
+
+class CompactKey {
+    String caller;
+    String responder;
+    String time;
+    String type;
+
+    public CompactKey(String caller, String responder, String time, String type) {
+        this.caller = caller;
+        this.responder = responder;
+        this.time = time;
+        this.type = type;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        CompactKey that = (CompactKey) o;
+        return Objects.equals(caller, that.caller) &&
+                Objects.equals(responder, that.responder) &&
+                Objects.equals(time, that.time) &&
+                Objects.equals(type, that.type);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(caller, responder, time, type);
     }
 }
