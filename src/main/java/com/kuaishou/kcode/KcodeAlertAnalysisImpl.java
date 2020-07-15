@@ -26,7 +26,7 @@ public class KcodeAlertAnalysisImpl implements KcodeAlertAnalysis {
     int maxCount = 5000;
     Semaphore count = new Semaphore(maxCount);
     /* 数据处理线程池 */
-    ThreadPoolExecutor threadPool = new ThreadPoolExecutor(8, 8, 60, TimeUnit.SECONDS, new LinkedBlockingQueue<>(maxCount));
+    ThreadPoolExecutor threadPool = new ThreadPoolExecutor(16, 16, 60, TimeUnit.SECONDS, new LinkedBlockingQueue<>(maxCount));
     /* thread safe formatter */
     /* global date formatter */
     SimpleDateFormat dateFormatter = new SimpleDateFormat("yyyy-MM-dd HH:mm");
@@ -34,7 +34,6 @@ public class KcodeAlertAnalysisImpl implements KcodeAlertAnalysis {
     int taskNumberThreshold = 2000;
     /* 每分钟的毫秒跨度 */
     int millspace = 60000;
-
 
     @Override
     public Collection<String> alarmMonitor(String path, Collection<String> alertRules) {
