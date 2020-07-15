@@ -25,7 +25,7 @@ public class KcodeAlertAnalysisImpl implements KcodeAlertAnalysis {
     Map<String, Map<String, Span>> Q2DataMap = new ConcurrentHashMap<>(300);
     /* 点集 */
     Map<String, Point> pointMap = new ConcurrentHashMap<>();
-    Map<Integer, List<String>> q2Cache = new ConcurrentHashMap<>();
+    Map<String, List<String>> q2Cache = new ConcurrentHashMap<>(5000);
     int maxCount = 10000;
     Semaphore count = new Semaphore(maxCount);
     /* 数据处理线程池 */
@@ -93,7 +93,8 @@ public class KcodeAlertAnalysisImpl implements KcodeAlertAnalysis {
     @Override
     public Collection<String> getLongestPath(String caller, String responder, String time, String type) {
         String key = caller + responder + time + type;
-        List<String> list = q2Cache.get(hash(caller, responder, time, type));
+        // List<String> list = q2Cache.get(hash(caller, responder, time, type));
+        List<String> list = q2Cache.get(key);
         if (list == null) return nullList;
         return list;
     }
@@ -272,7 +273,7 @@ public class KcodeAlertAnalysisImpl implements KcodeAlertAnalysis {
             // 得到最长后继
             dfs(point, false);
         });
-        // 更新每个点的最长前驱/后继路径
+        // 更新每个点的最长前驱/后继路径点
         pointMap.forEach((strServiceName, point) -> {
             Deque<Point> headPath = new LinkedList<>();
             List<Deque<Point>> headPaths = new ArrayList<>();
@@ -305,8 +306,10 @@ public class KcodeAlertAnalysisImpl implements KcodeAlertAnalysis {
                     List<String> srLongestPath = getLongestPath(point, pnt, formattedDate, ALERT_TYPE_SR);
                     String p99Key = strServiceName + pnt.getServiceName() + formattedDate + ALERT_TYPE_P99;
                     String srKey = strServiceName + pnt.getServiceName() + formattedDate + ALERT_TYPE_SR;
-                    q2Cache.put(hash(strServiceName, pnt.getServiceName(), formattedDate, ALERT_TYPE_P99), p99longestPath);
-                    q2Cache.put(hash(strServiceName, pnt.getServiceName(), formattedDate, ALERT_TYPE_SR), srLongestPath);
+                    // q2Cache.put(hash(strServiceName, pnt.getServiceName(), formattedDate, ALERT_TYPE_P99), p99longestPath);
+                    // q2Cache.put(hash(strServiceName, pnt.getServiceName(), formattedDate, ALERT_TYPE_SR), srLongestPath);
+                    q2Cache.put(p99Key, p99longestPath);
+                    q2Cache.put(srKey, srLongestPath);
                 });
             }
         });
