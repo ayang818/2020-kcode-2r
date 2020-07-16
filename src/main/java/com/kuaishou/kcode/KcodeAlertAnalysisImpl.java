@@ -7,6 +7,7 @@ import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 
 import static com.kuaishou.kcode.Utils.decimalFormat;
 import static com.kuaishou.kcode.Utils.toFullMinute;
@@ -22,9 +23,7 @@ public class KcodeAlertAnalysisImpl implements KcodeAlertAnalysis {
     Map<String, Map<Long, Span>> Q2DataMap = new ConcurrentHashMap<>(300);
     /* 点集 */
     Map<String, Point> pointMap = new ConcurrentHashMap<>();
-    // Map<Integer, List<String>> q2Cache = new ConcurrentHashMap<>(5000);
-    Map<Integer, Integer> q2Cache = new ConcurrentHashMap<>(5000);
-    List<String>[] realQ2Data = new List[100000];
+    Map<String, Map<String, Map<String, List<String>[]>>> q2Cache = new ConcurrentHashMap<>(5000);
     int maxCount = 5000;
     Semaphore count = new Semaphore(maxCount);
     /* 数据处理线程池 */
@@ -76,6 +75,7 @@ public class KcodeAlertAnalysisImpl implements KcodeAlertAnalysis {
     }
 
     List<String> nullList = new ArrayList<>();
+
     /**
      * @param caller    主调服务名称
      * @param responder 被调服务名称
@@ -85,7 +85,10 @@ public class KcodeAlertAnalysisImpl implements KcodeAlertAnalysis {
      */
     @Override
     public Collection<String> getLongestPath(String caller, String responder, String time, String type) {
-        return realQ2Data[q2Cache.get(hash(caller, responder, time, type))];
+        if (type.equals(ALERT_TYPE_P99)) {
+            return q2Cache.get(caller).get(responder).get(time)[0];
+        }
+        return q2Cache.get(caller).get(responder).get(time)[1];
     }
 
 
@@ -300,22 +303,18 @@ public class KcodeAlertAnalysisImpl implements KcodeAlertAnalysis {
                 String key = strServiceName + "," + pnt.getServiceName();
                 Map<Long, Span> stringSpanMap = Q2DataMap.get(key);
                 stringSpanMap.forEach((timestamp, span) -> {
+                    String formattedDate = dateFormatter.format(timestamp);
+                    List<String>[] lists = q2Cache.computeIfAbsent(strServiceName, (l) -> new ConcurrentHashMap<>())
+                            .computeIfAbsent(pnt.getServiceName(), (l) -> new ConcurrentHashMap<>())
+                            .computeIfAbsent(formattedDate, (l) -> new List[2]);
                     // callerService + responderService + formattedTimestamp + p99/sr 为 key
                     List<String> p99longestPath = getLongestPath(point, pnt, timestamp, ALERT_TYPE_P99);
                     List<String> srLongestPath = getLongestPath(point, pnt, timestamp, ALERT_TYPE_SR);
-                    // String p99Key = strServiceName + pnt.getServiceName() + formattedDate + ALERT_TYPE_P99;
-                    // String srKey = strServiceName + pnt.getServiceName() + formattedDate + ALERT_TYPE_SR;
-                    String formattedDate = dateFormatter.format(timestamp);
-                    q2Cache.put(hash(strServiceName, pnt.getServiceName(), formattedDate, ALERT_TYPE_P99), index.get());
-                    realQ2Data[index.getAndAdd(1)] = p99longestPath;
-                    q2Cache.put(hash(strServiceName, pnt.getServiceName(), formattedDate, ALERT_TYPE_SR), index.get());
-                    realQ2Data[index.getAndAdd(1)] = srLongestPath;
-                    // q2Cache.put(p99Key, p99longestPath);
-                    // q2Cache.put(srKey, srLongestPath);
+                    lists[0] = p99longestPath;
+                    lists[1] = srLongestPath;
                 });
             }
         });
-
     }
 
     private int dfs(Point point, boolean findPre) {
