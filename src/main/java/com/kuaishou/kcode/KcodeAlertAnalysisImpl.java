@@ -88,6 +88,7 @@ public class KcodeAlertAnalysisImpl implements KcodeAlertAnalysis {
         return realQ2Data[q2Cache.get(hash(caller, responder, time, type))];
     }
 
+
     private int hash(String a, String b, String c, String d) {
         int res = 1;
         res = 31 * res + a.hashCode();
